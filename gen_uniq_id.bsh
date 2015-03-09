@@ -1,0 +1,259 @@
+#!/usr/bin/env bash 
+
+#############################################################################
+###########################################################################
+### Created by Adam Danischewski (c) 2015 v1.00
+### Issues: If you find any issues emai1 me at my <first name> dot 
+###         <my last name> at gmail dot com.  
+###
+### This program generates a random md5sum based on the current time to 
+### nanoseconds and collected mouse movement data/random data over .25 
+### seconds or to an user-specified floating point timeframe.  
+### 
+### This program requires (to work to full capacity) by default: 
+### md5sum, timeout, xinput, /dev/urandom
+### 
+### This program is self-modifying and intentionally sensitive to line 
+### number changes. e.g. adding a line in this header will break something
+### 
+### This program is free software: you can redistribute it and/or modify
+### it under the terms of the GNU General Public License as published by
+### the Free Software Foundation, either version 3 of the License, or
+### (at your option) any later version.
+###
+### This program is distributed in the hope that it will be useful,
+### but WITHOUT ANY WARRANTY; without even the implied warranty of
+### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+### GNU General Public License for more details.
+###
+### You should have received a copy of the GNU General Public License
+### along with this program.  If not, see <http://www.gnu.org/licenses/>.
+###########################################################################
+#############################################################################
+
+declare  -r TIME_STAMP=$(date +%Y%m%d%H%M%S%N)
+declare  -r SED_DELIM=$(echo -en "\001")
+
+declare     STATEMENT="I AM A SOVEREIGN EVERLASTING SENTIENT FROM THE NUMBER LINE WITHOUT A CREATOR" 
+declare  -r STMNT_CHG_TXT="declare     STATEMENT=" ## should exactly match entry first part above
+declare -ir STMNT_CHG_LINENO=37  ## should match line no two entries above this line
+
+  ## This device ID should match the corresponding pointer device 
+  ## shown in xinput --list 
+declare     MOUSE_DEVICE=11
+declare  -r MOUSE_CHG_TXT="declare     MOUSE_DEVICE=" ## should exactly match entry first part above
+declare -ir MOUSE_CHG_LINENO=43  ## should match line no two entries above this line
+declare     MOUSE_DATA=""
+ ## Time in seconds to collect mouse movement data. 
+declare     MOUSE_DATA_COLLECT_TIME=".25"
+declare     USE_MOUSE_DATA=1 
+
+declare     RANDOM_DEVICE="/dev/urandom" 
+declare  -r RANDOM_CHG_TXT="declare     RANDOM_DEVICE=" ## should exactly match entry above
+declare -ir RANDOM_CHG_LINENO=51  ## should match line no two entries above this line
+declare     RANDOM_DATA="" 
+declare     RANDOM_DATA_COLLECT_TIME=".25" 
+declare     USE_RANDOM_DATA=1 
+
+function usage() {
+cat <<EOF
+
+Usage: ${0##*/} <-h> <-d> <-m=[0.00..]> <-r=[0.00..]> <-s="YOUR QUOTE"> 
+
+OPTIONS:
+      -h           Show this message
+      -d           Turn on debug mode 
+      -m=0.00..    Mouse data collection time, 0 turns off mouse data, 
+                   any float turns on collecting mouse movement data 
+                   for the random generated. Default is (.25 seconds) 
+      -r=0.00..    Random data collection time, 0 turns off random data 
+                   collection, any float turns on collecting random data 
+                   for the duration time in seconds for the random 
+                   generated. Default is (.25 seconds) 
+      -s           String of text to incorporate into the random md5sum
+      -M=0-20..    Change default value of mouse device id (that 
+                   corresponds to xinput --list mouse device id)
+      -R="/dev/.." Change default value of the random device to use 
+      -S="U QUOTE" Change default value of the STATEMENT STRING
+      
+EOF
+} 
+ 
+function help() {
+cat <<EOF
+
+Description: ${0##*/}
+
+This program generates a random number based on the current time to the 
+nanosecond (date +%Y%m%d%H%M%S%N), combined with by default .25 
+seconds of mouse data combined with .25 seconds of random data. 
+
+This script currently outputs a random md5sum of a string consisting of 
+the current time, a block of text, mouse movement data and random data. 
+
+The default mouse device id currently set is ${MOUSE_DEVICE}, the 
+default this script "ships" with is 11 this is likely wrong for your 
+system so you will need to change it to the appropriate value. You may 
+set a new default value using the -M option.   
+
+The appropriate mouse device id to use can be determined by 
+running: xinput --list 
+
+The default random device id currently set is ${RANDOM_DEVICE}, the 
+default the script "ships" with is /dev/urandom which usually exists on 
+most *nix boxes. If you would like to use a random device other than 
+the current default you may set a new default value using the -R option.  
+
+The default text currently set is: 
+"${STATEMENT}"  
+
+If you like to use a different statement text you may set a new default 
+value using the -S option.  
+
+WARNING: -M, -R, -S options require that \${0} (now set to ${0}) refer 
+to the script, either a fully qualified path /favorite/place/for/\${0} 
+or \${0} to refer to the script you wish to modify that is in your 
+current directory. These options require further that you have write 
+permission on \${0}. 
+
+The -M, -R, -S options should only need to be issued VERY INFREQUENTLY, 
+once they are run the values become the new DEFAULT values. If you have 
+modified this script at all, or you think for any reason the line 
+numbers have changed then these options will likely fail. 
+
+It is recommended that you make a copy to a sandbox directory and test 
+it there before running it on your main copy of this script. The script 
+does make a backup of the original script but the backup will get 
+clobbered from repeated use. If these options are too scary, then I 
+recommend you modify this script and comment out the logic in the case 
+statement of the option handler. From there you can modify this script
+manually when necessary.
+
+EOF
+
+usage 
+
+cat <<EOF
+  E.g.
+        ## To generate a random md5sum based on random data collected 
+        ## over .5 seconds and 1 second of collected mouse movement data
+      \$ ${0##*/} -r.5 -m1 
+
+        ## To generate a random md5sum based on random data collected 
+        ## over .15 seconds without any collected mouse movement data
+      \$ ${0##*/} -r.5 -m0 
+
+        ## To generate a random md5sum without random data collected 
+        ## and without any collected mouse movement data and with a 
+        ## custom default text 
+      \$ ${0##*/} -r0 -m0 -s="For my benefit only, I .." 
+
+        ## To debug and see all internal variables 
+      \$ ${0##*/} -d 2>&1 | more
+
+        ## To change the defaults for the mouse dev to device id 10, 
+        ## random device to /dev/really_quick_random and 
+        ## statement to "A DECLARATION OF SOVEREIGNTY NEED NO WITNESS"
+      \$ ${0##*/} -M=10 -R="/dev/really_quick_random" \\
+                        -S="A DECLARATION OF SOVEREIGNTY NEED NO WITNESS" 
+      
+EOF
+exit 0 
+}
+
+function set_mouse_data() { 
+local -i ERROR_FLAG=0 
+MOUSE_DATA=$(timeout ${MOUSE_DATA_COLLECT_TIME} xinput --test ${MOUSE_DEVICE} 2>/dev/random) 
+[[ $? -lt 124 ]] && { echo "Problem using mouse device id ${MOUSE_DEVICE}, use xinput --list to find the" 1>&2; 
+  	                  echo "appropriate mouse device and set a new default mouse device id with" 1>&2; 
+	                  echo "the -M option." 1>&2; }
+} 
+
+function set_rand_data() { 
+if [[ ! -c "${RANDOM_DEVICE}" ]]; then  
+ echo "Problem finding character random device ${RANDOM_DEVICE}, a new random device " 1>&2; 
+ echo "may be set with the -R option." 1>&2; 
+else 
+ RANDOM_DATA=$(timeout ${RANDOM_DATA_COLLECT_TIME} cat "${RANDOM_DEVICE}" | strings)
+fi  
+} 
+
+ ## <arg 1> String - String to escape  
+function escape_string() { 
+ local    ESCAPED_STRING="${1}"   
+ local -i ADD_BACKSLASH=$(($(echo -En "${ESCAPED_STRING}" | sed "s${SED_DELIM}\(^.*[^\\]\)\([\\]*\)\$${SED_DELIM}\2${SED_DELIM}" | wc -c)%2)) 	
+ ESCAPED_STRING="$(sed "s${SED_DELIM}[^0-9 A-Za-z._-]${SED_DELIM}\x5c\x5c&${SED_DELIM}g" <<< "${ESCAPED_STRING}")" 
+  ## This logic is to handle the cases of strings ending in an uneven number of backslashes, this would 
+  ## have the effect of escaping our saved text' closing quote mark and that would break this script, 
+  ## so this logic makes sure that if there is an odd number of ending backslashes then an extra backslash 
+  ## is added to even it out and furthermore it doubly escapes all backslashes to make it easier to print 
+  ## them using simple echo than having to worry about not having the shell crunch them.  
+  ## Note if further processing of the variable was needed it may cause further crunching so it would 
+  ## make sense in that case to treat this differently. 
+ ((${ADD_BACKSLASH})) && ESCAPED_STRING=$(echo -En "${ESCAPED_STRING}\\\\" | sed "s${SED_DELIM}\x5c\x5c\x5c\x5c${SED_DELIM}\x5c\x5c\x5c\x5c\x5c\x5c\x5c\x5c${SED_DELIM}g")
+ echo -En "${ESCAPED_STRING}"
+}   
+
+function print_uniq_id() { 
+((${USE_MOUSE_DATA}))  && set_mouse_data 
+((${USE_RANDOM_DATA})) && set_rand_data
+echo -En "${TIME_STAMP}${STATEMENT}${MOUSE_DATA}${RANDOM_DATA}" | md5sum | awk '{print $1}' 
+}  
+
+function process_options() { 
+local OPTIND OPTARG OPTION h m d r s M R S 
+while getopts “:h?dM:R:S:s:m:r:” OPTION "$@"; 
+ do
+     case "$OPTION" in
+         h)
+             help
+             ;;
+         m)
+             if [ "${OPTARG##*=}" = "0" ]; then 
+                USE_MOUSE_DATA=0 
+             else 
+                MOUSE_DATA_COLLECT_TIME="${OPTARG##*=}"
+             fi 
+             ;;
+         r)
+             if [ "${OPTARG##*=}" = "0" ]; then 
+                USE_RANDOM_DATA=0 
+             else 
+                RANDOM_DATA_COLLECT_TIME="${OPTARG##*=}"
+             fi 
+             ;;
+         d)
+             DEBUGMODE=1
+             set -xuo pipefail
+             ;;
+         s)
+             STATEMENT="${OPTARG##*=}"
+             ;;
+         M)  
+             MOUSE_DEVICE=${OPTARG##*=}
+             sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${OPTARG##*=}/}}" "${0}"
+             ;;                      
+         R)  
+             RANDOM_DEVICE="${OPTARG##*=}"
+             RANDOM_DEVICE=$(escape_string "${RANDOM_DEVICE}")   
+             sed -bi "${RANDOM_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${RANDOM_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${RANDOM_CHG_TXT}.*${SED_DELIM}${RANDOM_CHG_TXT}\"${RANDOM_DEVICE}\"${SED_DELIM}}}" "${0}"
+             ;;                      
+         S)   
+             STATEMENT="${OPTARG##*=}" 
+             STATEMENT=$(escape_string "${STATEMENT}")   
+             sed -bi "${STMNT_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${STMNT_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${STMNT_CHG_TXT}.*${SED_DELIM}${STMNT_CHG_TXT}\"${STATEMENT}\"${SED_DELIM}}}" "${0}"
+             ;;                      
+         *) 
+             ;& 
+         ?)
+             usage | more
+             exit 0
+             ;;
+     esac
+done
+} 
+
+process_options "$@"
+print_uniq_id 
+
+exit 0 
