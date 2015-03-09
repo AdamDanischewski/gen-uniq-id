@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by Adam Danischewski (c) 2015 v1.02
+### Created by Adam Danischewski (c) 2015 v1.03
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -54,6 +54,9 @@ declare -ir RANDOM_CHG_LINENO=51  ## should match line no two entries above this
 declare     RANDOM_DATA="" 
 declare     RANDOM_DATA_COLLECT_TIME=".25" 
 declare     USE_RANDOM_DATA=1 
+
+declare  -r CHECK_FLOAT="%f"  
+declare  -r CHECK_INTEGER="%i"  
 
 function usage() {
 cat <<EOF
@@ -194,6 +197,39 @@ function escape_string() {
  echo -En "${ESCAPED_STRING}"
 }   
 
+ ## <arg 1> Number - Number to check  
+ ## <arg 2> String - Number type to check  
+ ## <arg 3> String - Error message  
+function check_number() { 
+  local NUMBER="${1}" 
+  local NUMBER_TYPE="${2}" 
+  local ERROR_MESG="${3}"
+  local -i PASS=1 
+  local -i FAIL=0   
+  case "${NUMBER_TYPE}" in 
+    "${CHECK_FLOAT}") 
+        if ((! $(printf "${CHECK_FLOAT}" "${NUMBER}" &>/dev/random;echo $?))); then 
+           echo "${PASS}"
+        else 
+           echo "${ERROR_MESG}" 1>&2
+           echo "${FAIL}"
+        fi 
+        ;;                 
+    "${CHECK_INTEGER}") 
+        if ((! $(printf "${CHECK_INTEGER}" "${NUMBER}" &>/dev/random;echo $?))); then 
+           echo "${PASS}"
+        else 
+           echo "${ERROR_MESG}" 1>&2
+           echo "${FAIL}"
+        fi 
+        ;;                 
+                     *) 
+        echo "Invalid number type format: ${NUMBER_TYPE} to escape_check_number()." 1>&2
+        echo "${FAIL}"
+        ;;                 
+   esac
+} 
+
 function print_uniq_id() { 
 ((${USE_MOUSE_DATA}))  && set_mouse_data
 ((${USE_RANDOM_DATA})) && set_rand_data
@@ -201,7 +237,8 @@ echo -En "${TIME_STAMP}${STATEMENT}${MOUSE_DATA}${RANDOM_DATA}" | md5sum | awk '
 }  
 
 function process_options() { 
-local OPTIND OPTARG OPTION h m d r s M R S 
+local OPTIND OPTARG OPTION h m d r s M R S
+local ERROR_MSG=""  
 while getopts “:h?dM:R:S:s:m:r:” OPTION "$@"; 
  do
      case "$OPTION" in
@@ -210,17 +247,19 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
              exit 0
              ;;
          m)
+             ERROR_MSG="Invalid Mouse Time: Floating point number Required"
              if [ "${OPTARG##*=}" = "0" ]; then 
                 USE_MOUSE_DATA=0 
-             else 
+             elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
                 MOUSE_DATA_COLLECT_TIME="${OPTARG##*=}"
              fi 
              ;;
          r)
+             ERROR_MSG="Invalid random device data collection time: Integer or Floating point number required."
              if [ "${OPTARG##*=}" = "0" ]; then 
-                USE_RANDOM_DATA=0 
-             else 
-                RANDOM_DATA_COLLECT_TIME="${OPTARG##*=}"
+               USE_RANDOM_DATA=0 
+             elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
+               RANDOM_DATA_COLLECT_TIME="${OPTARG##*=}"
              fi 
              ;;
          d)
@@ -228,15 +267,19 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
              set -xuo pipefail
              ;;
          s)
-             STATEMENT="${OPTARG##*=}"
+             STATEMENT="${OPTARG##*=}" 
+             STATEMENT=$(escape_string "${STATEMENT}")   
              ;;
          M)  
-             MOUSE_DEVICE=${OPTARG##*=}
-             sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${OPTARG##*=}/}}" "${0}"
+             ERROR_MSG=$(echo "Error - Integer required: Invalid mouse device id ${OPTARG##*=}, "\
+                              "use xinput --list to find the appropriate mouse device id.")
+             if (($(check_number "${OPTARG##*=}" "${CHECK_INTEGER}" "${ERROR_MSG}"))); then 
+              MOUSE_DEVICE=${OPTARG##*=}
+              sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${OPTARG##*=}/}}" "${0}"
+             fi 
              ;;                      
          R)  
-             RANDOM_DEVICE="${OPTARG##*=}"
-             RANDOM_DEVICE=$(escape_string "${RANDOM_DEVICE}")   
+             RANDOM_DEVICE="${OPTARG##*=}"       
              sed -bi "${RANDOM_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${RANDOM_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${RANDOM_CHG_TXT}.*${SED_DELIM}${RANDOM_CHG_TXT}\"${RANDOM_DEVICE}\"${SED_DELIM}}}" "${0}"
              ;;                      
          S)   
