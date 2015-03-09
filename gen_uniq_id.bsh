@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by Adam Danischewski (c) 2015 v1.00
+### Created by Adam Danischewski (c) 2015 v1.01
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -34,7 +34,7 @@
 declare  -r TIME_STAMP=$(date +%Y%m%d%H%M%S%N)
 declare  -r SED_DELIM=$(echo -en "\001")
 
-declare     STATEMENT="I AM A SOVEREIGN EVERLASTING SENTIENT FROM THE NUMBER LINE WITHOUT A CREATOR" 
+declare     STATEMENT="I AM AN EVERLASTING SOVEREIGN SENTIENT WITHOUT A CREATOR FROM THE NUMBER LINE"
 declare  -r STMNT_CHG_TXT="declare     STATEMENT=" ## should exactly match entry first part above
 declare -ir STMNT_CHG_LINENO=37  ## should match line no two entries above this line
 
@@ -190,12 +190,13 @@ function escape_string() {
   ## them using simple echo than having to worry about not having the shell crunch them.  
   ## Note if further processing of the variable was needed it may cause further crunching so it would 
   ## make sense in that case to treat this differently. 
- ((${ADD_BACKSLASH})) && ESCAPED_STRING=$(echo -En "${ESCAPED_STRING}\\\\" | sed "s${SED_DELIM}\x5c\x5c\x5c\x5c${SED_DELIM}\x5c\x5c\x5c\x5c\x5c\x5c\x5c\x5c${SED_DELIM}g")
+ ((${ADD_BACKSLASH})) && ESCAPED_STRING="${ESCAPED_STRING}\\\\"
+ ESCAPED_STRING=$(echo -En "${ESCAPED_STRING}" | sed "s${SED_DELIM}\x5c\x5c\x5c\x5c${SED_DELIM}\x5c\x5c\x5c\x5c\x5c\x5c\x5c\x5c${SED_DELIM}g")
  echo -En "${ESCAPED_STRING}"
 }   
 
 function print_uniq_id() { 
-((${USE_MOUSE_DATA}))  && set_mouse_data 
+((${USE_MOUSE_DATA}))  && set_mouse_data
 ((${USE_RANDOM_DATA})) && set_rand_data
 echo -En "${TIME_STAMP}${STATEMENT}${MOUSE_DATA}${RANDOM_DATA}" | md5sum | awk '{print $1}' 
 }  
