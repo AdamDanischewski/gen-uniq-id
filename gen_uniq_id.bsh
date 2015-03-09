@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by Adam Danischewski (c) 2015 v1.01
+### Created by Adam Danischewski (c) 2015 v1.02
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -158,7 +158,6 @@ cat <<EOF
                         -S="A DECLARATION OF SOVEREIGNTY NEED NO WITNESS" 
       
 EOF
-exit 0 
 }
 
 function set_mouse_data() { 
@@ -207,7 +206,8 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
  do
      case "$OPTION" in
          h)
-             help
+             help | more 
+             exit 0
              ;;
          m)
              if [ "${OPTARG##*=}" = "0" ]; then 
@@ -247,7 +247,7 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
          *) 
              ;& 
          ?)
-             usage | more
+             usage
              exit 0
              ;;
      esac
