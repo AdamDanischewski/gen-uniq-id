@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by A.M.Danischewski (c) 2015 v1.07
+### Created by A.M.Danischewski (c) 2015 v1.08
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -212,38 +212,75 @@ function escape_string() {
  echo -En "${ESCAPED_STRING}"
 }   
 
- ## <arg 1> Number - Number to check  
- ## <arg 2> String - Number type to check  
- ## <arg 3> String - Error message  
-function check_number() { 
+ ## <arg 1> Number - Number to check
+ ## <arg 2> String - Number type to check
+ ## <arg 3> String - Error message
+function check_number() {
+  local NUMBER="${1}"
+  local NUMBER_TYPE="${2}"
+  local ERROR_MESG="${3}"
+  local FILTERED_NUMBER=$(sed 's/[^.e0-9+\^]//g' <<< "${NUMBER}")
+  local -i PASS=1
+  local -i FAIL=0
+    if [[ -z "${NUMBER}" ]]; then 
+        echo "Empty number argument passed to check_number()." 1>&2
+        echo "${ERROR_MESG}" 1>&2
+        echo "${FAIL}"          
+  elif [[ -z "${NUMBER_TYPE}" ]]; then 
+        echo "Empty number type argument passed to check_number()." 1>&2
+        echo "${ERROR_MESG}" 1>&2
+        echo "${FAIL}"          
+  elif [[ ! "${#NUMBER}" -eq "${#FILTERED_NUMBER}" ]]; then 
+        echo "Non numeric characters found in number argument passed to check_number()." 1>&2
+        echo "${ERROR_MESG}" 1>&2
+        echo "${FAIL}"          
+  else  
+   case "${NUMBER_TYPE}" in
+     "${CHECK_FLOAT}")
+         if ((! $(printf "${CHECK_FLOAT}" "${NUMBER}" &>/dev/random;echo $?))); then
+            echo "${PASS}"
+         else
+            echo "${ERROR_MESG}" 1>&2
+            echo "${FAIL}"
+         fi
+         ;;
+     "${CHECK_INTEGER}")
+         if ((! $(printf "${CHECK_INTEGER}" "${NUMBER}" &>/dev/random;echo $?))); then
+            echo "${PASS}"
+         else
+            echo "${ERROR_MESG}" 1>&2
+            echo "${FAIL}"
+         fi
+         ;;
+                      *)
+         echo "Invalid number type format: ${NUMBER_TYPE} to check_number()." 1>&2
+         echo "${FAIL}"
+         ;;
+    esac
+ fi 
+}
+
+ ## Note: Number can be any printf acceptable format and includes leading quotes and quotations, 
+ ##       and anything else that corresponds to the POSIX specification. 
+ ##       E.g. "'1e+03" is valid POSIX float format, see http://mywiki.wooledge.org/BashFAQ/054
+ ## <arg 1> Number - Number to print
+ ## <arg 2> String - Number type to print
+function print_number() { 
   local NUMBER="${1}" 
   local NUMBER_TYPE="${2}" 
-  local ERROR_MESG="${3}"
-  local -i PASS=1 
-  local -i FAIL=0   
   case "${NUMBER_TYPE}" in 
-    "${CHECK_FLOAT}") 
-        if ((! $(printf "${CHECK_FLOAT}" "${NUMBER}" &>/dev/random;echo $?))); then 
-           echo "${PASS}"
-        else 
-           echo "${ERROR_MESG}" 1>&2
-           echo "${FAIL}"
-        fi 
+      "${CHECK_FLOAT}") 
+           printf "${CHECK_FLOAT}" "${NUMBER}" || echo "Error printing Float in print_number()." 1>&2
         ;;                 
     "${CHECK_INTEGER}") 
-        if ((! $(printf "${CHECK_INTEGER}" "${NUMBER}" &>/dev/random;echo $?))); then 
-           echo "${PASS}"
-        else 
-           echo "${ERROR_MESG}" 1>&2
-           echo "${FAIL}"
-        fi 
+           printf "${CHECK_INTEGER}" "${NUMBER}" || echo "Error printing Integer in print_number()." 1>&2
         ;;                 
                      *) 
-        echo "Invalid number type format: ${NUMBER_TYPE} to escape_check_number()." 1>&2
-        echo "${FAIL}"
+        echo "Invalid number type format: ${NUMBER_TYPE} to print_number()." 1>&2
         ;;                 
    esac
 } 
+
 
 function print_uniq_id() { 
 ((${USE_MOUSE_DATA}))  && set_mouse_data
@@ -266,7 +303,7 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
              if [ "${OPTARG##*=}" = "0" ]; then 
                 USE_MOUSE_DATA=0 
              elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
-                MOUSE_DATA_COLLECT_TIME="${OPTARG##*=}"
+                MOUSE_DATA_COLLECT_TIME=$(print_number "${OPTARG##*=}" "${CHECK_FLOAT}")
              fi 
              ;;
          r)
@@ -274,7 +311,7 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
              if [ "${OPTARG##*=}" = "0" ]; then 
                USE_RANDOM_DATA=0 
              elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
-               RANDOM_DATA_COLLECT_TIME="${OPTARG##*=}"
+               RANDOM_DATA_COLLECT_TIME=$(print_number "${OPTARG##*=}" "${CHECK_FLOAT}") 
              fi 
              ;;
          d)
@@ -290,7 +327,7 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
              ERROR_MSG=$(echo "Error - Invalid mouse device id: ${OPTARG##*=}, Integer required"\
                               "use xinput --list to find the appropriate mouse device id.")
              if (($(check_number "${OPTARG##*=}" "${CHECK_INTEGER}" "${ERROR_MSG}"))); then 
-              MOUSE_DEVICE=${OPTARG##*=}
+              MOUSE_DEVICE=$(print_number "${OPTARG##*=}" "${CHECK_INTEGER}")
               sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${OPTARG##*=}/}}" "${0}"
              else 
               exit -1 
