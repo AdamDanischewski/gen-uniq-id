@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by A.M.Danischewski (c) 2015 v1.08
+### Created by A.M.Danischewski (c) 2015 v1.09
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -57,11 +57,14 @@ declare     USE_RANDOM_DATA=1
 
 declare  -r CHECK_FLOAT="%f"  
 declare  -r CHECK_INTEGER="%i"  
+declare  -r DEFAULT_STATEMENT="I AM AN EVERLASTING SOVEREIGN SENTIENT WITHOUT A CREATOR FROM THE NUMBER LINE"
+declare  -r DEFAULT_MOUSE_DEVICE=11
+declare  -r DEFAULT_RANDOM_DEVICE="/dev/urandom"
 
 function usage() {
 cat <<EOF
 
-Usage: ${0##*/} <-h> <-d> <-m=[0.00..]> <-r=[0.00..]> <-s="YOUR QUOTE"> 
+Usage: ${0##*/} <-h> <-d> <-m=[0.00..]> <-r=[0.00..]> <-s="YOUR QUOTE">  <-M -R -S>|<-D>
 
 OPTIONS:
       -h           Show this message
@@ -77,7 +80,8 @@ OPTIONS:
       -M=0-20..    Change default value of mouse device id (that 
                    corresponds to xinput --list mouse device id)
       -R="/dev/.." Change default value of the random device to use 
-      -S="U QUOTE" Change default value of the STATEMENT STRING
+      -S="U QUOTE" Change default value of the static text block 
+      -D           Reset script to "shipped" default values 
       
 EOF
 } 
@@ -116,13 +120,13 @@ You can also supply your own text statement dynamically with the
 If you like to use a different statement text you may set a new default 
 value using the -S option.  
 
-WARNING: -M, -R, -S options require that \${0} (now set to ${0}) refer 
+WARNING: -M, -R, -S, -D options require that \${0} (now set to ${0}) refer 
 to the script, either a fully qualified path /favorite/place/for/\${0} 
 or \${0} to refer to the script you wish to modify that is in your 
 current directory. These options require further that you have write 
 permission on \${0}. 
 
-The -M, -R, -S options should only need to be issued VERY INFREQUENTLY, 
+The -M, -R, -S, -D options should only need to be issued VERY INFREQUENTLY, 
 once they are run the values become the new DEFAULT values. If you have 
 modified this script at all, or you think for any reason the line 
 numbers have changed then these options will likely fail. 
@@ -146,8 +150,8 @@ cat <<EOF
       \$ ${0##*/} -r.5 -m1 
 
         ## To generate a random md5sum based on random data collected 
-        ## over .15 seconds without any collected mouse movement data
-      \$ ${0##*/} -r.5 -m0 
+        ## over 0.004353 seconds without any collected mouse movement data
+      \$ ${0##*/} -r".000004353354e+03" -m0 
 
         ## To turn off mouse collection, and random collection and 
         ## seed with the last 5 commands from history w/debug on to see 
@@ -165,7 +169,7 @@ cat <<EOF
         ## random device to /dev/really_quick_random and 
         ## statement to "A DECLARATION OF SOVEREIGNTY NEED NO WITNESS"
       \$ ${0##*/} -M=10 -R="/dev/really_quick_random" \\
-                        -S="A DECLARATION OF SOVEREIGNTY NEED NO WITNESS" 
+                        -S="A DECLARATION OF SOVEREIGNTY NEED NO WITNESS"
       
 EOF
 }
@@ -289,9 +293,9 @@ echo -En "${TIME_STAMP}${STATEMENT}${MOUSE_DATA}${RANDOM_DATA}" | md5sum | awk '
 }  
 
 function process_options() { 
-local OPTIND OPTARG OPTION h m d r s M R S
+local OPTIND OPTARG OPTION h m d r s M R S D
 local ERROR_MSG=""  
-while getopts “:h?dM:R:S:s:m:r:” OPTION "$@"; 
+while getopts “:h?dDM:R:S:s:m:r:” OPTION "$@"; 
  do
      case "$OPTION" in
          h)
@@ -328,7 +332,7 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
                               "use xinput --list to find the appropriate mouse device id.")
              if (($(check_number "${OPTARG##*=}" "${CHECK_INTEGER}" "${ERROR_MSG}"))); then 
               MOUSE_DEVICE=$(print_number "${OPTARG##*=}" "${CHECK_INTEGER}")
-              sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${OPTARG##*=}/}}" "${0}"
+              sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${MOUSE_DEVICE}/}}" "${0}"
              else 
               exit -1 
              fi 
@@ -351,6 +355,15 @@ while getopts “:h?dM:R:S:s:m:r:” OPTION "$@";
              STATEMENT="${OPTARG##*=}" 
              STATEMENT=$(escape_string "${STATEMENT}")   
              sed -bi "${STMNT_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${STMNT_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${STMNT_CHG_TXT}.*${SED_DELIM}${STMNT_CHG_TXT}\"${STATEMENT}\"${SED_DELIM}}}" "${0}"
+             ;;                      
+         D)   
+             check_writable
+             STATEMENT="${DEFAULT_STATEMENT}" 
+             RANDOM_DEVICE="${DEFAULT_RANDOM_DEVICE}"
+             MOUSE_DEVICE="${DEFAULT_MOUSE_DEVICE}" 
+             sed -bi "${STMNT_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${STMNT_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${STMNT_CHG_TXT}.*${SED_DELIM}${STMNT_CHG_TXT}\"${STATEMENT}\"${SED_DELIM}}}" "${0}"
+             sed -bi "${RANDOM_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${RANDOM_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${RANDOM_CHG_TXT}.*${SED_DELIM}${RANDOM_CHG_TXT}\"${RANDOM_DEVICE}\"${SED_DELIM}}}" "${0}"
+             sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${MOUSE_DEVICE}/}}" "${0}"
              ;;                      
          *) 
              ;& 
