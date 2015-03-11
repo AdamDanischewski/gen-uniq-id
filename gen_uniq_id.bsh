@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by A.M.Danischewski (c) 2015 v1.09
+### Created by A.M.Danischewski (c) 2015 v1.10
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -76,7 +76,7 @@ OPTIONS:
                    collection, any float turns on collecting random data 
                    for the duration time in seconds for the random 
                    generated. Default is (.25 seconds) 
-      -s           String of text to incorporate into the random md5sum
+      -s="dynatxt" String of text to incorporate into the random md5sum
       -M=0-20..    Change default value of mouse device id (that 
                    corresponds to xinput --list mouse device id)
       -R="/dev/.." Change default value of the random device to use 
@@ -91,12 +91,13 @@ cat <<EOF
 
 Description: ${0##*/}
 
-This program generates a random number based on the current time to the 
-nanosecond (date +%Y%m%d%H%M%S%N), combined with by default .25 
-seconds of mouse data combined with .25 seconds of random data. 
-
 This script currently outputs a random md5sum of a string consisting of 
 the current time, a block of text, mouse movement data and random data. 
+
+This program generates the random md5 string based on the current time 
+to the nanosecond (date +%Y%m%d%H%M%S%N), combined with - by default - 
+.25 seconds of mouse data, .25 seconds of random data and a default 
+static text block. 
 
 The default mouse device id currently set is ${MOUSE_DEVICE}, the 
 default this script "ships" with is 11 this is likely wrong for your 
@@ -107,38 +108,36 @@ The appropriate mouse device id to use can be determined by
 running: xinput --list 
 
 The default random device id currently set is ${RANDOM_DEVICE}, the 
-default the script "ships" with is /dev/urandom which usually exists on 
-most *nix boxes. If you would like to use a random device other than 
+default the script "ships" with is /dev/urandom which usually exists 
+on most *nix boxes. If you would like to use a random device other than 
 the current default you may set a new default value using the -R option.  
 
 The default text currently set is: 
 "${STATEMENT}"  
 
-You can also supply your own text statement dynamically with the 
--s option, this allows for further random seeding opportunity. 
-
 If you like to use a different statement text you may set a new default 
 value using the -S option.  
 
-WARNING: -M, -R, -S, -D options require that \${0} (now set to ${0}) refer 
-to the script, either a fully qualified path /favorite/place/for/\${0} 
-or \${0} to refer to the script you wish to modify that is in your 
-current directory. These options require further that you have write 
-permission on \${0}. 
+You can also supply your own text statement dynamically with the 
+-s option, this allows for further random seeding opportunity. 
 
-The -M, -R, -S, -D options should only need to be issued VERY INFREQUENTLY, 
-once they are run the values become the new DEFAULT values. If you have 
-modified this script at all, or you think for any reason the line 
-numbers have changed then these options will likely fail. 
+Caveat: -M, -R, -S, -D options requires that \${0}, now set to: 
+   ${0} 
+ refers to the location of this script, either as a fully qualified 
+ path such as /favorite/place/for/\${0} or simply \${0} if this script 
+ resides in the working directory from where it is run. 
 
-It is recommended that you make a copy to a sandbox directory and test 
-it there before running it on your main copy of this script. The script 
-does make a backup of the original script but the backup will get 
-clobbered from repeated use. If these options are too scary, then I 
-recommend you modify this script and comment out the logic in the case 
-statement of the option handler. From there you can modify this script
-manually when necessary.
+ These options require further that you have write permission on \${0}. 
 
+ The -M, -R, -S, -D options should be issued VERY INFREQUENTLY, once 
+ they are run the values become the new default values. If you have 
+ modified this script at all, or you think for any reason the line 
+ numbers have changed may cause these options to fail (by design). 
+
+ This script does make a backup of the original script when default 
+ settings change but the backup will get clobbered from repeated use. 
+
+You may reset the default options back to the "shipped" values with -D.
 EOF
 
 usage 
@@ -147,29 +146,32 @@ cat <<EOF
   E.g.
         ## To generate a random md5sum based on random data collected 
         ## over .5 seconds and 1 second of collected mouse movement data
-      \$ ${0##*/} -r.5 -m1 
+      \$ ${0##*/} -r.5 -m".0001e+4" 
 
         ## To generate a random md5sum based on random data collected 
-        ## over 0.004353 seconds without any collected mouse movement data
+        ## over 0.004353 seconds without collected mouse movement data
       \$ ${0##*/} -r".000004353354e+03" -m0 
 
         ## To turn off mouse collection, and random collection and 
-        ## seed with the last 5 commands from history w/debug on to see 
+        ## seed with the last 5 commands from history w/debug 
       \$ ${0##*/} -d -m0 -r0 -s$(history|tail -5)
 
         ## To generate a random md5sum without random data collected 
-        ## and without any collected mouse movement data and with a 
+        ## and with 1 second of collected mouse movement data and with a 
         ## custom default text 
-      \$ ${0##*/} -r0 -m0 -s="For my benefit only, I .." 
+      \$ ${0##*/} -r0 -m1 -s"For my benefit only, I .." 
 
         ## To debug and see all internal variables 
       \$ ${0##*/} -d 2>&1 | more
 
         ## To change the defaults for the mouse dev to device id 10, 
-        ## random device to /dev/really_quick_random and 
-        ## statement to "A DECLARATION OF SOVEREIGNTY NEED NO WITNESS"
+        ## random device to /dev/really_quick_random and the default 
+        ## statement text to a new default 
       \$ ${0##*/} -M=10 -R="/dev/really_quick_random" \\
                         -S="A DECLARATION OF SOVEREIGNTY NEED NO WITNESS"
+
+        ## To reset all default options back to the "shipped" values  
+      \$ ${0##*/} -D 
       
 EOF
 }
