@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by A.M.Danischewski (c) 2015 v1.10
+### Created by A.M.Danischewski (c) 2015 v1.11
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -11,7 +11,7 @@
 ### seconds or to an user-specified floating point timeframe.  
 ### 
 ### This program requires (to work to full capacity) by default: 
-### md5sum, timeout, xinput, /dev/urandom
+### md5sum, timeout, xinput, /dev/urandom, xev
 ### 
 ### This program is self-modifying and intentionally sensitive to line 
 ### number changes. e.g. adding a line in this header will break something
@@ -55,6 +55,12 @@ declare     RANDOM_DATA=""
 declare     RANDOM_DATA_COLLECT_TIME=".25" 
 declare     USE_RANDOM_DATA=1 
 
+declare  -r XEV_WIN_NAME="Generate Unique Random ID - Move mouse in window!"
+declare  -r XEV_WIN_GEOMETRY="500x250"
+declare     XEV_DATA_COLLECT_TIME=".25" 
+declare     XEV_DATA=""
+declare     USE_XEV_DATA=0 
+
 declare  -r CHECK_FLOAT="%f"  
 declare  -r CHECK_INTEGER="%i"  
 declare  -r DEFAULT_STATEMENT="I AM AN EVERLASTING SOVEREIGN SENTIENT WITHOUT A CREATOR FROM THE NUMBER LINE"
@@ -64,14 +70,17 @@ declare  -r DEFAULT_RANDOM_DEVICE="/dev/urandom"
 function usage() {
 cat <<EOF
 
-Usage: ${0##*/} <-h> <-d> <-m=[0.00..]> <-r=[0.00..]> <-s="YOUR QUOTE">  <-M -R -S>|<-D>
+Usage: ${0##*/} <-h> <-d> <-m> <-x> <-r> <-s> <-M -R -S>|<-D>
 
 OPTIONS:
       -h           Show this message
-      -d           Turn on debug mode 
+      -d           Turn on debug mode, useful for tweaking options. 
       -m=0.00..    Mouse data collection time, 0 turns off mouse data, 
                    any float turns on collecting mouse movement data 
                    for the random generated. Default is (.25 seconds) 
+      -x=0.00..    Xev xevent data collection time, any float turns on 
+                   collecting xev xevent data. Turned off by default, 
+                   any float will provide the timeout or (.25 seconds).  
       -r=0.00..    Random data collection time, 0 turns off random data 
                    collection, any float turns on collecting random data 
                    for the duration time in seconds for the random 
@@ -121,6 +130,12 @@ value using the -S option.
 You can also supply your own text statement dynamically with the 
 -s option, this allows for further random seeding opportunity. 
 
+The -x option turns on collection of xevent data, turned off by default 
+any float turns it on. It will create a new xwindow on the screen and 
+record all Xevents that occur while the window is open and in focus. 
+Move the mouse around in the displayed monitoring window for best 
+results. 
+
 Caveat: -M, -R, -S, -D options requires that \${0}, now set to: 
    ${0} 
  refers to the location of this script, either as a fully qualified 
@@ -152,6 +167,10 @@ cat <<EOF
         ## over 0.004353 seconds without collected mouse movement data
       \$ ${0##*/} -r".000004353354e+03" -m0 
 
+        ## To generate a random md5sum based on xevent data collected 
+        ## over 5 seconds without collected mouse movement data 
+      \$ ${0##*/} -m0 -x5
+
         ## To turn off mouse collection, and random collection and 
         ## seed with the last 5 commands from history w/debug 
       \$ ${0##*/} -d -m0 -r0 -s$(history|tail -5)
@@ -177,11 +196,16 @@ EOF
 }
 
 function set_mouse_data() { 
-local -i ERROR_FLAG=0 
 MOUSE_DATA=$(timeout ${MOUSE_DATA_COLLECT_TIME} xinput --test ${MOUSE_DEVICE} 2>/dev/random) 
 [[ $? -lt 124 ]] && { echo "Problem using mouse device id ${MOUSE_DEVICE}, use xinput --list to find the" 1>&2; 
   	                  echo "appropriate mouse device and set a new default mouse device id with" 1>&2; 
 	                  echo "the -M option." 1>&2; }
+} 
+
+function set_xev_data() { 
+local -i ERROR_FLAG=0 
+XEV_DATA=$(timeout ${XEV_DATA_COLLECT_TIME} xev -geometry "${XEV_WIN_GEOMETRY}" -name "${XEV_WIN_NAME}" 2>/dev/random) 
+[[ $? -lt 124 ]] && { echo "Problem using xev." 1>&2; }
 } 
 
 function set_rand_data() { 
@@ -287,17 +311,17 @@ function print_number() {
    esac
 } 
 
-
 function print_uniq_id() { 
 ((${USE_MOUSE_DATA}))  && set_mouse_data
 ((${USE_RANDOM_DATA})) && set_rand_data
-echo -En "${TIME_STAMP}${STATEMENT}${MOUSE_DATA}${RANDOM_DATA}" | md5sum | awk '{print $1}' 
+((${USE_XEV_DATA}))    && set_xev_data
+echo -En "${TIME_STAMP}${STATEMENT}${XEV_DATA}${MOUSE_DATA}${RANDOM_DATA}" | md5sum | awk '{print $1}' 
 }  
 
 function process_options() { 
-local OPTIND OPTARG OPTION h m d r s M R S D
+local OPTIND OPTARG OPTION h m x d r s M R S D
 local ERROR_MSG=""  
-while getopts “:h?dDM:R:S:s:m:r:” OPTION "$@"; 
+while getopts “:h?dDM:R:S:s:x:m:r:” OPTION "$@"; 
  do
      case "$OPTION" in
          h)
@@ -310,6 +334,15 @@ while getopts “:h?dDM:R:S:s:m:r:” OPTION "$@";
                 USE_MOUSE_DATA=0 
              elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
                 MOUSE_DATA_COLLECT_TIME=$(print_number "${OPTARG##*=}" "${CHECK_FLOAT}")
+             fi 
+             ;;
+         x)
+             ERROR_MSG="Invalid xevent data collection time: Integer or floating point number required."
+             if [ "${OPTARG##*=}" = "0" ]; then 
+                USE_XEV_DATA=0 
+             elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
+                XEV_DATA_COLLECT_TIME=$(print_number "${OPTARG##*=}" "${CHECK_FLOAT}")
+                USE_XEV_DATA=1 
              fi 
              ;;
          r)
