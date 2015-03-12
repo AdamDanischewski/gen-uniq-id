@@ -342,7 +342,7 @@ echo -En "${TIME_STAMP}${STATEMENT}${XEV_DATA}${MOUSE_DATA}${RANDOM_DATA}" | md5
  ## the otherwise skipped value in the array option argument. This works 
  ## except for when the missing argument is on the end of the list, 
  ## in this case getopts will not have anything to gobble as an 
- ## argument to the option and will want to error out. To avoid this 
+ ## argument to the option and will want to error out. To avoid this an
  ## empty string is appended to the argument array, yet in so doing 
  ## care must be taken to manage this added empty string appropriately. 
  ## As a result any option that doesn't exit at the time its processed
@@ -353,6 +353,7 @@ function process_options() {
 local OPTIND OPTERR=0 OPTARG OPTION h m x d r s M R S D
 local ERROR_MSG=""  
 local OPTION_VAL=""
+local EXIT_VALUE=0 
 local -i NUM_OPTIONS
 let NUM_OPTIONS=${#@}+1
 while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@"; 
@@ -486,10 +487,11 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
              exit 0
              ;;          
          *) 
+             EXIT_VALUE=-1
              ;&                  
          ?)
              usage
-             exit 0
+             exit ${EXIT_VALUE}
              ;;
      esac
 done
