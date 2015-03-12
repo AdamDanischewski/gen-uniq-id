@@ -57,7 +57,7 @@ declare     USE_RANDOM_DATA=1
 
 declare  -r XEV_WIN_NAME="Generate Unique Random ID - Move mouse in window!"
 declare  -r XEV_WIN_GEOMETRY="500x250"
-declare     XEV_DATA_COLLECT_TIME=".25" 
+declare     XEV_DATA_COLLECT_TIME="3" 
 declare     XEV_DATA=""
 declare     USE_XEV_DATA=0 
 
@@ -77,14 +77,16 @@ OPTIONS:
       -d           Turn on debug mode, useful for tweaking options. 
       -m=0.00..    Mouse data collection time, 0 turns off mouse data, 
                    any float turns on collecting mouse movement data 
-                   for the random generated. Default is (.25 seconds) 
-      -x=1.00..    Xev xevent data collection time, any float turns on 
+                   for the random generated. Default is (${MOUSE_DATA_COLLECT_TIME} seconds) 
+      -x=[0.00..]  Xev xevent data collection time, any float turns on 
                    collecting xev xevent data. Turned off by default, 
-                   any non-zero float provides the timeout.  
+                   the option flag turns it on and any non-zero float 
+                   provides the duration of xevent data collection.   
+                   Default without any argument is (${XEV_DATA_COLLECT_TIME} seconds)
       -r=0.00..    Random data collection time, 0 turns off random data 
                    collection, any float turns on collecting random data 
                    for the duration time in seconds for the random 
-                   generated. Default is (.25 seconds) 
+                   generated. Default is (${RANDOM_DATA_COLLECT_TIME} seconds) 
       -s="dynatxt" String of text to incorporate into the random md5sum
       -M=0-20..    Change default value of mouse device id (that 
                    corresponds to xinput --list mouse device id)
@@ -105,11 +107,11 @@ the current time, a block of text, mouse movement data and random data.
 
 This program generates the random md5 string based on the current time 
 to the nanosecond (date +%Y%m%d%H%M%S%N), combined with - by default - 
-.25 seconds of mouse data, .25 seconds of random data and a default 
+${MOUSE_DATA_COLLECT_TIME} seconds of mouse data, ${RANDOM_DATA_COLLECT_TIME} seconds of random data and a default 
 static text block. 
 
 The default mouse device id currently set is ${MOUSE_DEVICE}, the 
-default this script "ships" with is 11 this is likely wrong for your 
+default this script "ships" with is ${DEFAULT_MOUSE_DEVICE} this is likely wrong for your 
 system so you will need to change it to the appropriate value. You may 
 set a new default value using the -M option.   
 
@@ -131,10 +133,13 @@ You can also supply your own text statement dynamically with the
 -s option, this allows for further random seeding opportunity. 
 
 The -x option turns on collection of xevent data, turned off by default 
-any float turns it on. It will create a new xwindow on the screen and 
-record all Xevents that occur while the window is open and in focus. 
-Move the mouse around in the displayed monitoring window for best 
-results. More X events generated == better quality random !! 
+any the -x with any float or no argument turns it on for the default 
+duration time of ${XEV_DATA_COLLECT_TIME} seconds. This option will create a new xwindow on 
+the screen for the option argument float parameter in seconds. This 
+option records all Xevents that occur while the xev window is open and 
+in focus. Move the mouse around in the displayed monitoring window for 
+best results. The more X events generated the better the seed data and 
+as a result a higher quality random will be produced.  
 
 Caveat: -M, -R, -S, -D options requires that \${0}, now set to: 
    ${0} 
@@ -170,6 +175,11 @@ cat <<EOF
         ## To generate a random md5sum based on xevent data collected 
         ## over 5 seconds without collected mouse movement data 
       \$ ${0##*/} -m0 -x5
+
+        ## To generate a random md5sum based on xevent data collected 
+        ## over the xev xevent default of ${XEV_DATA_COLLECT_TIME} seconds without collected 
+        ## mouse movement data  or random data with debug turned on 
+      \$ ${0##*/} -m0 -r0 -x -d
 
         ## To turn off mouse collection, and random collection and 
         ## seed with the last 5 commands from history w/debug 
@@ -311,6 +321,12 @@ function print_number() {
    esac
 } 
 
+ ## <arg 1> String - String to trim single ending whitespace from
+function trim_string() { 
+ local STRING="${1}" 
+ echo -En $(sed 's/ $//' <<< "${STRING}") || echo "Error in trim_string() expected a sensible string, found: ${STRING}" 1>&2
+} 
+
 function print_uniq_id() { 
 ((${USE_MOUSE_DATA}))  && set_mouse_data
 ((${USE_RANDOM_DATA})) && set_rand_data
@@ -318,10 +334,28 @@ function print_uniq_id() {
 echo -En "${TIME_STAMP}${STATEMENT}${XEV_DATA}${MOUSE_DATA}${RANDOM_DATA}" | md5sum | awk '{print $1}' 
 }  
 
+ ## This a hack for getopts because getopts does not support optional 
+ ## arguments very intuitively. E.g. Regardless of whether the values 
+ ## begin with a dash, getopts presumes that anything following an 
+ ## option that takes an option argument is the option argument. To fix   
+ ## this the index variable OPTIND is decremented so it points back to  
+ ## the otherwise skipped value in the array option argument. This works 
+ ## except for when the missing argument is on the end of the list, 
+ ## in this case getopts will not have anything to gobble as an 
+ ## argument to the option and will want to error out. To avoid this 
+ ## empty string is appended to the argument array, yet in so doing 
+ ## care must be taken to manage this added empty string appropriately. 
+ ## As a result any option that doesn't exit at the time its processed
+ ## needs to be made to accept an argument, otherwise you will never 
+ ## know if the option will be the last option sent thus having an empty 
+ ## string attached and causing it to land in the default handler. 
 function process_options() { 
-local OPTIND OPTARG OPTION h m x d r s M R S D
+local OPTIND OPTERR=0 OPTARG OPTION h m x d r s M R S D
 local ERROR_MSG=""  
-while getopts “:h?dDM:R:S:s:x:m:r:” OPTION "$@"; 
+local OPTION_VAL=""
+local -i NUM_OPTIONS
+let NUM_OPTIONS=${#@}+1
+while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@"; 
  do
      case "$OPTION" in
          h)
@@ -329,67 +363,116 @@ while getopts “:h?dDM:R:S:s:x:m:r:” OPTION "$@";
              exit 0
              ;;
          m)
+             OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG="Invalid mouse data collection time: Integer or floating point number required."
-             if [ "${OPTARG##*=}" = "0" ]; then 
-                USE_MOUSE_DATA=0 
-             elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
-                MOUSE_DATA_COLLECT_TIME=$(print_number "${OPTARG##*=}" "${CHECK_FLOAT}")
+             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+               let OPTIND=${OPTIND}-1
+               USE_MOUSE_DATA=1  ## if argument is missing use the current default          
+             elif [[ -z "${OPTION_VAL}" ]]; then 
+               USE_MOUSE_DATA=1  ## if argument is empty use the current default          
+             elif [ "${OPTION_VAL}" = "0" ]; then 
+               USE_MOUSE_DATA=0 
+             elif (($(check_number "${OPTION_VAL}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
+               MOUSE_DATA_COLLECT_TIME=$(print_number "${OPTION_VAL}" "${CHECK_FLOAT}")
+             else 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
              fi 
              ;;
          x)
+             OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG="Invalid xevent data collection time: Integer or floating point number required."
-             if [ "${OPTARG##*=}" = "0" ]; then 
-                USE_XEV_DATA=0 
-             elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
-                XEV_DATA_COLLECT_TIME=$(print_number "${OPTARG##*=}" "${CHECK_FLOAT}")
-                USE_XEV_DATA=1 
+             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+               let OPTIND=${OPTIND}-1
+               USE_XEV_DATA=1  ## if argument is missing use the current default 
+             elif [[ -z "${OPTION_VAL}" ]]; then 
+               USE_XEV_DATA=1  ## if argument is empty use the current default 
+             elif [ "${OPTION_VAL}" = "0" ]; then 
+               USE_XEV_DATA=0 
+             elif (($(check_number "${OPTION_VAL}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
+               XEV_DATA_COLLECT_TIME=$(print_number "${OPTION_VAL}" "${CHECK_FLOAT}")
+               USE_XEV_DATA=1 
+             else 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
              fi 
              ;;
          r)
+             OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG="Invalid random device data collection time: Integer or floating point number required."
-             if [ "${OPTARG##*=}" = "0" ]; then 
+             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+               let OPTIND=${OPTIND}-1
+               USE_RANDOM_DATA=1  ## if argument is missing use the current default 
+             elif [[ -z "${OPTION_VAL}" ]]; then 
+               USE_RANDOM_DATA=1  ## if argument empty use the current default        
+             elif [ "${OPTION_VAL}" = "0" ]; then 
                USE_RANDOM_DATA=0 
-             elif (($(check_number "${OPTARG##*=}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
-               RANDOM_DATA_COLLECT_TIME=$(print_number "${OPTARG##*=}" "${CHECK_FLOAT}") 
+             elif (($(check_number "${OPTION_VAL}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
+               RANDOM_DATA_COLLECT_TIME=$(print_number "${OPTION_VAL}" "${CHECK_FLOAT}") 
+             else 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
              fi 
              ;;
          d)
+             OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
+             [[ "${OPTION_VAL}" =~ ^-. ]] && let OPTIND=${OPTIND}-1             
              DEBUGMODE=1
              set -xuo pipefail
              ;;
          s)
-             STATEMENT="${OPTARG##*=}" 
-             STATEMENT=$(escape_string "${STATEMENT}")   
+             STATEMENT=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
+             if [[ "${STATEMENT}" =~ ^-. ]]; then ## if you want a statement that begins with a dash, escape it 
+               let OPTIND=${OPTIND}-1
+             else 
+               STATEMENT=$(escape_string "${STATEMENT}")   
+             fi 
              ;;
          M)  
              check_writable
-             ERROR_MSG=$(echo "Error - Invalid mouse device id: ${OPTARG##*=}, Integer required"\
+             OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
+             ERROR_MSG=$(echo "Error - Invalid mouse device id: ${OPTION_VAL}, Integer required"\
                               "use xinput --list to find the appropriate mouse device id.")
-             if (($(check_number "${OPTARG##*=}" "${CHECK_INTEGER}" "${ERROR_MSG}"))); then 
-              MOUSE_DEVICE=$(print_number "${OPTARG##*=}" "${CHECK_INTEGER}")
-              sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${MOUSE_DEVICE}/}}" "${0}"
+             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+               let OPTIND=${OPTIND}-1
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
+             elif [[ -z "${OPTION_VAL}" ]]; then 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
+             elif (($(check_number "${OPTION_VAL}" "${CHECK_INTEGER}" "${ERROR_MSG}"))); then 
+               MOUSE_DEVICE=$(print_number "${OPTION_VAL}" "${CHECK_INTEGER}")
+               sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${MOUSE_DEVICE}/}}" "${0}"
              else 
-              exit -1 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
              fi 
              ;;                      
          R)  
              check_writable
-             ERROR_MSG=$(echo "Error - Invalid character device: ${OPTARG##*=},"\
+             OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
+             ERROR_MSG=$(echo "Error - Invalid character device: ${OPTION_VAL},"\
                               "the value supplied to -R is expected to be a fully "\
                               "qualified path to a random character device.")             
-             if [[ -c "${OPTARG##*=}" ]]; then 
-              RANDOM_DEVICE="${OPTARG##*=}"       
-              sed -bi "${RANDOM_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${RANDOM_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${RANDOM_CHG_TXT}.*${SED_DELIM}${RANDOM_CHG_TXT}\"${RANDOM_DEVICE}\"${SED_DELIM}}}" "${0}"
+             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+               let OPTIND=${OPTIND}-1
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
+             elif [[ -z "${OPTION_VAL}" ]]; then 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
+             elif [[ -c "${OPTION_VAL}" ]]; then 
+               RANDOM_DEVICE="${OPTION_VAL}"       
+               sed -bi "${RANDOM_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${RANDOM_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${RANDOM_CHG_TXT}.*${SED_DELIM}${RANDOM_CHG_TXT}\"${RANDOM_DEVICE}\"${SED_DELIM}}}" "${0}"
              else 
-              echo "${ERROR_MSG}" 
-              exit -1 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
              fi 
              ;;                      
          S)   
              check_writable
-             STATEMENT="${OPTARG##*=}" 
-             STATEMENT=$(escape_string "${STATEMENT}")   
-             sed -bi "${STMNT_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${STMNT_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${STMNT_CHG_TXT}.*${SED_DELIM}${STMNT_CHG_TXT}\"${STATEMENT}\"${SED_DELIM}}}" "${0}"
+             STATEMENT=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
+             ERROR_MSG="Error - Default text string to set cannot be empty."
+             if [[ "${STATEMENT}" =~ ^-. ]]; then ## if you want a statement that begins with a dash, escape it 
+               let OPTIND=${OPTIND}-1
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
+             elif [[ -z "${STATEMENT}" ]]; then 
+               echo "${ERROR_MSG}" 1>&2 && exit -1 
+             else 
+               STATEMENT=$(escape_string "${STATEMENT}")   
+               sed -bi "${STMNT_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${STMNT_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${STMNT_CHG_TXT}.*${SED_DELIM}${STMNT_CHG_TXT}\"${STATEMENT}\"${SED_DELIM}}}" "${0}"
+             fi 
              ;;                      
          D)   
              check_writable
@@ -399,9 +482,11 @@ while getopts “:h?dDM:R:S:s:x:m:r:” OPTION "$@";
              sed -bi "${STMNT_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${STMNT_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${STMNT_CHG_TXT}.*${SED_DELIM}${STMNT_CHG_TXT}\"${STATEMENT}\"${SED_DELIM}}}" "${0}"
              sed -bi "${RANDOM_CHG_LINENO}{"$'\x5c'"${SED_DELIM}^${RANDOM_CHG_TXT}${SED_DELIM}{s${SED_DELIM}^${RANDOM_CHG_TXT}.*${SED_DELIM}${RANDOM_CHG_TXT}\"${RANDOM_DEVICE}\"${SED_DELIM}}}" "${0}"
              sed -bi "${MOUSE_CHG_LINENO}{/^${MOUSE_CHG_TXT}/{s/^${MOUSE_CHG_TXT}.*/${MOUSE_CHG_TXT}${MOUSE_DEVICE}/}}" "${0}"
-             ;;                      
+             echo "All ${0} values successfully reset to \"shipped\" default values." 
+             exit 0
+             ;;          
          *) 
-             ;& 
+             ;&                  
          ?)
              usage
              exit 0
@@ -410,7 +495,7 @@ while getopts “:h?dDM:R:S:s:x:m:r:” OPTION "$@";
 done
 } 
 
-process_options "$@"
+process_options "$@ " ## extra space, so getopts can find arguments  
 print_uniq_id 
 
 exit 0 
