@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by A.M.Danischewski (c) 2015 v1.11
+### Created by A.M.Danischewski (c) 2015 v1.12
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -11,7 +11,7 @@
 ### seconds or to an user-specified floating point timeframe.  
 ### 
 ### This program requires (to work to full capacity) by default: 
-### md5sum, timeout, xinput, /dev/urandom, xev
+### md5sum <-- required, timeout, xinput, /dev/urandom, xev
 ### 
 ### This program is self-modifying and intentionally sensitive to line 
 ### number changes. e.g. adding a line in this header will break something
@@ -78,9 +78,9 @@ OPTIONS:
       -m=0.00..    Mouse data collection time, 0 turns off mouse data, 
                    any float turns on collecting mouse movement data 
                    for the random generated. Default is (.25 seconds) 
-      -x=0.00..    Xev xevent data collection time, any float turns on 
+      -x=1.00..    Xev xevent data collection time, any float turns on 
                    collecting xev xevent data. Turned off by default, 
-                   any float will provide the timeout or (.25 seconds).  
+                   any non-zero float provides the timeout.  
       -r=0.00..    Random data collection time, 0 turns off random data 
                    collection, any float turns on collecting random data 
                    for the duration time in seconds for the random 
@@ -134,7 +134,7 @@ The -x option turns on collection of xevent data, turned off by default
 any float turns it on. It will create a new xwindow on the screen and 
 record all Xevents that occur while the window is open and in focus. 
 Move the mouse around in the displayed monitoring window for best 
-results. 
+results. More X events generated == better quality random !! 
 
 Caveat: -M, -R, -S, -D options requires that \${0}, now set to: 
    ${0} 
