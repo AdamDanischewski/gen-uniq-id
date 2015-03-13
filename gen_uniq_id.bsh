@@ -2,7 +2,7 @@
 
 #############################################################################
 ###########################################################################
-### Created by A.M.Danischewski (c) 2015 v1.16
+### Created by A.M.Danischewski (c) 2015 v1.17
 ### Issues: If you find any issues emai1 me at my <first name> dot 
 ###         <my last name> at gmail dot com.  
 ###
@@ -366,11 +366,11 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
          m)
              OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG="Invalid mouse data collection time: Integer or floating point number required."
-             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+             if [[ -z "${OPTION_VAL}" ]]; then 
+               USE_MOUSE_DATA=1  ## if argument is empty use the current default          
+             elif [[ "${OPTION_VAL}" =~ ^-. ]]; then 
                let OPTIND=${OPTIND}-1
                USE_MOUSE_DATA=1  ## if argument is missing use the current default          
-             elif [[ -z "${OPTION_VAL}" ]]; then 
-               USE_MOUSE_DATA=1  ## if argument is empty use the current default          
              elif [ "${OPTION_VAL}" = "0" ]; then 
                USE_MOUSE_DATA=0 
              elif (($(check_number "${OPTION_VAL}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
@@ -382,11 +382,11 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
          x)
              OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG="Invalid xevent data collection time: Integer or floating point number required."
-             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+             if [[ -z "${OPTION_VAL}" ]]; then 
+               USE_XEV_DATA=1  ## if argument is empty use the current default 
+             elif [[ "${OPTION_VAL}" =~ ^-. ]]; then 
                let OPTIND=${OPTIND}-1
                USE_XEV_DATA=1  ## if argument is missing use the current default 
-             elif [[ -z "${OPTION_VAL}" ]]; then 
-               USE_XEV_DATA=1  ## if argument is empty use the current default 
              elif [ "${OPTION_VAL}" = "0" ]; then 
                USE_XEV_DATA=0 
              elif (($(check_number "${OPTION_VAL}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
@@ -399,11 +399,11 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
          r)
              OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG="Invalid random device data collection time: Integer or floating point number required."
-             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+             if [[ -z "${OPTION_VAL}" ]]; then 
+               USE_RANDOM_DATA=1  ## if argument empty use the current default        
+             elif [[ "${OPTION_VAL}" =~ ^-. ]]; then 
                let OPTIND=${OPTIND}-1
                USE_RANDOM_DATA=1  ## if argument is missing use the current default 
-             elif [[ -z "${OPTION_VAL}" ]]; then 
-               USE_RANDOM_DATA=1  ## if argument empty use the current default        
              elif [ "${OPTION_VAL}" = "0" ]; then 
                USE_RANDOM_DATA=0 
              elif (($(check_number "${OPTION_VAL}" "${CHECK_FLOAT}" "${ERROR_MSG}"))); then 
@@ -414,13 +414,13 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
              ;;
          d)
              OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
-             [[ "${OPTION_VAL}" =~ ^-. ]] && let OPTIND=${OPTIND}-1             
+             [[ ! -z "${OPTION_VAL}" && "${OPTION_VAL}" =~ ^-. ]] && let OPTIND=${OPTIND}-1             
              DEBUGMODE=1
              set -xuo pipefail
              ;;
          s)
              STATEMENT=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
-             if [[ "${STATEMENT}" =~ ^-. ]]; then ## if you want a statement that begins with a dash, escape it 
+             if [[ ! -z "${STATEMENT}" && "${STATEMENT}" =~ ^-. ]]; then ## if you want a statement that begins with a dash, escape it 
                let OPTIND=${OPTIND}-1
              else 
                STATEMENT=$(escape_string "${STATEMENT}")   
@@ -431,10 +431,10 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
              OPTION_VAL=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG=$(echo "Error - Invalid mouse device id: ${OPTION_VAL}, Integer required"\
                               "use xinput --list to find the appropriate mouse device id.")
-             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
-               let OPTIND=${OPTIND}-1
+             if [[ -z "${OPTION_VAL}" ]]; then 
                echo "${ERROR_MSG}" 1>&2 && exit -1 
-             elif [[ -z "${OPTION_VAL}" ]]; then 
+             elif [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+               let OPTIND=${OPTIND}-1
                echo "${ERROR_MSG}" 1>&2 && exit -1 
              elif (($(check_number "${OPTION_VAL}" "${CHECK_INTEGER}" "${ERROR_MSG}"))); then 
                MOUSE_DEVICE=$(print_number "${OPTION_VAL}" "${CHECK_INTEGER}")
@@ -449,10 +449,10 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
              ERROR_MSG=$(echo "Error - Invalid character device: ${OPTION_VAL},"\
                               "the value supplied to -R is expected to be a fully "\
                               "qualified path to a random character device.")             
-             if [[ "${OPTION_VAL}" =~ ^-. ]]; then 
-               let OPTIND=${OPTIND}-1
+             if [[ -z "${OPTION_VAL}" ]]; then 
                echo "${ERROR_MSG}" 1>&2 && exit -1 
-             elif [[ -z "${OPTION_VAL}" ]]; then 
+             elif [[ "${OPTION_VAL}" =~ ^-. ]]; then 
+               let OPTIND=${OPTIND}-1
                echo "${ERROR_MSG}" 1>&2 && exit -1 
              elif [[ -c "${OPTION_VAL}" ]]; then 
                RANDOM_DEVICE="${OPTION_VAL}"       
@@ -465,10 +465,10 @@ while getopts “:h?d:DM:R:S:s:x:m:r:” OPTION "$@";
              check_writable
              STATEMENT=$(((${NUM_OPTIONS}==${OPTIND})) && trim_string "${OPTARG##*=}" || echo -En "${OPTARG##*=}")
              ERROR_MSG="Error - Default text string to set cannot be empty."
-             if [[ "${STATEMENT}" =~ ^-. ]]; then ## if you want a statement that begins with a dash, escape it 
-               let OPTIND=${OPTIND}-1
+             if [[ -z "${STATEMENT}" ]]; then 
                echo "${ERROR_MSG}" 1>&2 && exit -1 
-             elif [[ -z "${STATEMENT}" ]]; then 
+             elif [[ "${STATEMENT}" =~ ^-. ]]; then ## if you want a statement that begins with a dash, escape it 
+               let OPTIND=${OPTIND}-1
                echo "${ERROR_MSG}" 1>&2 && exit -1 
              else 
                STATEMENT=$(escape_string "${STATEMENT}")   
